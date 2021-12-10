@@ -6,9 +6,18 @@ include('connection.php');
 
 $pswdErrorMessage="";
 $userErrorMessage="";
+  
   if(isset($_POST['login']) && (empty($_POST['user']) || empty($_POST['pswd']))) {
    $userErrorMessage = empty($_POST['user']) ? "Please fill in!" : ""; 
    $pswdErrorMessage = empty($_POST['pswd']) ? "Please fill in!" : ""; 
+  }
+  //Honey Pot Validation
+  elseif(isset($_POST['login']) && !empty($_POST['comments'])) {
+    /**storing ip address of visitor. will need away to transport the data with ip adddress
+         **/
+        $ip = getenv("REMOTE_ADDR");
+        header("Location: form-handler-homework-honeyPot.php?ip=" . $ip);
+    return;
   }
   elseif(isset($_POST['login'])) {
     $user = $_POST['user'];
@@ -21,9 +30,8 @@ $userErrorMessage="";
     //open connection 
     $conn = $connection->open();
      //SQL query 
-    $sql = "SELECT event_user_name, event_user_password FROM event_user WHERE event_user_name=:user AND event_user_password=:pswd;";
+    $sql = "SELECT event_user_name, event_user_password FROM event_user WHERE event_user_name=:user AND event_user_password=:pswd";
     //pepare query string
-    $conn->prepare($sql);
     $query = $conn->prepare($sql);
     //bind values to query
     $query->bindparam(':user', $user);
@@ -37,13 +45,8 @@ $userErrorMessage="";
     if($rowCount==1) {
       //set Session variable to true
       $_SESSION['validUser'] = true;
-      print_r($_SESSION['validUser']);
-      var_dump($_SESSION['validUser']);
-      echo $_SESSION['validUser'];
     }
     else {
-      //set Session variable to false
-      $_SESSION['validUser'] = false;
       //implementing flash messaging to inform user of login results
       $_SESSION['loginErrorMessage'] = "Incorrect Username or Password!!!";
       header("Location: login.php");
@@ -63,7 +66,7 @@ $userErrorMessage="";
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="This webpage will implement PHP to build a login page that will grant admin priviliges upon validation">
-  <meta name="keywords" content="PHP Admin Login SQL">
+  <meta name="keywords" content="PHP,Admin,Login,SQL">
   <meta name="author" content="Joshua Allen">
   <title>Login Page</title>
   <style>
@@ -117,6 +120,25 @@ $userErrorMessage="";
   table a {
     color: red;
   }
+  #admin_data {
+    display: none;
+  }
+
+  #console a {
+    text-align: center;
+    display: inline-block;
+    paddin: 1.3 3.5rem;
+    background: rgba(255,0,255,1);
+    text-decoration: none;
+    color: white;
+    border-radius: 1.2rem;
+    width: 7rem;
+    margin-bottom: 2rem;
+   
+    font-size: 2.2rem;
+  }
+  
+
   </style>
 </head>
 <body>
@@ -126,8 +148,8 @@ $userErrorMessage="";
       <div><h1>Login and Protected Page</h1></div>
       <!--Admin Section once user authenticated-->
      <?php
-     //Another implementation  
-     $validUser = isset($_SESSION['validUser']) ? $_SESSION['validUser'] : ""; 
+     //Another implementation 
+     $validUser = isset($_SESSION['validUser']) ? $_SESSION['validUser'] : null;
      if($validUser) {
        if(isset($_SESSION['error'])) {
          echo "<p>".$_SESSION['error']."</p>";
@@ -138,13 +160,14 @@ $userErrorMessage="";
         unset($_SESSION['success']);
       }
     ?>
-      <section>
+      <section id="console">
         <h3>Admin Console</h3>
-        <div><a href="#">Add</a></div>
-        <div><a href="#">List</a></div>
+        <div><a href="../WDV341-PHP-SQL-INSERT/eventsForm.php">Add</a></div>
+        <div><a id="list" href="#">List</a></div>
         <div><a href="logout.php">Logout</a></div>
       </section>
-      <section>
+      <section id="admin_data">
+        <form id="events_Form" method="post">
         <table>
           <caption>Events Table</caption>
           <thead>
@@ -177,22 +200,46 @@ $userErrorMessage="";
               echo '<td>',htmlentities($row['date']),'</td>';
               echo '<td>',htmlentities($row['time']),'</td>';
               echo "<td><a href='updateEvent.php?eventID=".htmlentities($row['id'])."'>Update</a></td>";
-              echo "<td><a href='delete-event.php?eventID=".htmlentities($row['id'])."'>Delete</a></td>";
+              echo "<td><a onclick='goToDeletePage()' class='hello' id='".htmlentities($row['id'])."'href='delete-event.php?eventID=".htmlentities($row['id'])."'>Delete</a></td>";
               echo "</tr>";
             }
-           
-          }
+           }
           catch(PDOException $e){
             echo "Errors: " . $e->getMessage();
           } 
           ?>
           </tbody>
         </table>
-      </section>
-    <?php
+        <!--Honey Pot-->
+        <label for="comments" display="none"></label>
+          <input type="text" name="comments" id="comments" display="none" autocomplete="off" style="border-bottom:none;">
+          <!--end of Honey Pot-->
+          </form>
+        </section>
+
+       <!--Javascrpt-->  
+   <script>
+
+     document.getElementById("comments").style.display='none';
+
+     
+     var listButton = document.getElementById("list");
+     listButton.addEventListener('click', displayAdminConsole,false);
+
+     function displayAdminConsole() {
+       console.log("Hello Wolrd");
+      document.getElementById("admin_data").style.display='block';
+     }
+
+     function goToDeletePage() {
+      alert("Are You Sure?");
+    }
+  </script>
+  <?php
     return;
      } //using flash messaging to send user Authenitcation error messaging
      $authMessage = isset($_SESSION['loginErrorMessage']) ? $_SESSION['loginErrorMessage'] : null;
+     unset($_SESSION['loginErrorMessage']);
      
      ?>
       <h2><?php echo $authMessage; ?></h2>
@@ -208,11 +255,16 @@ $userErrorMessage="";
         <span><?php echo htmlentities($pswdErrorMessage); ?></span>
         </div>
         <div>
+          <!--Honey Pot-->
+          <label for="comments" display="none"></label>
+          <input type="text" name="comments" id="comments" display="none" autocomplete="off" style="border-bottom:none;">
+          <!--end of Honey Pot-->
           <button type="submit" name="login" value="login">Login</button>
         </div>
+         
       </form>
     </main>
     <footer>WDV341</footer>
-  </div>  
+  </div>
 </body>
 </html>
